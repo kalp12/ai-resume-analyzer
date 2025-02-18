@@ -1,97 +1,65 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import pdfplumber
+from flask import Flask, jsonify, request
+from flasgger import Swagger, swag_from
+from utils.file_handler import process_resume_file
+from utils.nlp_processor import analyze_resume_mistral,analyze_resume_gemma
 import os
-import docx
-from werkzeug.utils import secure_filename
-from flasgger import Swagger
-
-UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'pdf', 'docx'}
 
 app = Flask(__name__)
+
+UPLOAD_FOLDER = "uploads"
+# os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+# Initialize Swagger
 swagger = Swagger(app)
 
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def extract_text_from_pdf(file_path):
-    with pdfplumber.open(file_path) as pdf:
-        text = ''
-        for page in pdf.pages:
-            text += page.extract_text() + "\n"
-    return text.strip()
-
-def extract_text_from_docx(docx_path):
-    doc = docx.Document(docx_path)
-    text = "\n".join([para.text for para in doc.paragraphs])
-    return text.strip()
-
-@app.route("/", methods=["GET"])
-def home():
-    """
-    Resume Analyzer API Home
-    ---
-    responses:
-      200:
-        description: API is running successfully
-    """
-    return jsonify({"message": "Resume Analyzer API is running!"})
-
-@app.route("/upload", methods=["POST"])
-def upload_resume():
-    """
-    Upload a resume file (PDF or DOCX) and extract text.
-    ---
-    parameters:
-      - name: file
-        in: formData
-        type: file
-        required: true
-        description: The resume file to upload (PDF or DOCX).
-    responses:
-      200:
-        description: Successfully extracted text from the resume
-        schema:
-          type: object
-          properties:
-            filename:
-              type: string
-              description: The uploaded filename
-            extracted_text:
-              type: string
-              description: Extracted text from the resume
-      400:
-        description: Bad request (invalid file or missing file)
-    """
+@app.route('/greet', methods=['get'])
+@swag_from('swag/greet.yml')  # Link the Swagger YAML file
+def greet_user():
+    name = request.args.get('name')
+    
+    if name:
+        return jsonify({"message": f"Hi, Good morning {name}!"})
+    else:
+        return jsonify({"error": "Name parameter is missing"}), 400
+    
+@app.route("/upload_check_file", methods=["POST"])
+@swag_from("swag/upload_check_file.yml")  # Ensure correct path to `upload.yml`
+def upload_check_file():
+    """ Upload Resume """
     if "file" not in request.files:
-        return jsonify({"error": "No file part in request"}), 400
+        return jsonify({"error": "No file provided"}), 400
 
     file = request.files["file"]
+    filename = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
+    file.save(filename)
 
-    if file.filename == "":
-        return jsonify({"error": "No selected file"}), 400
+    return jsonify({"message": "File uploaded", "filename": file.filename})
 
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-        file.save(file_path)
 
-        file_extension = filename.rsplit(".", 1)[1].lower()
-        if file_extension == "pdf":
-            extracted_text = extract_text_from_pdf(file_path)
-        elif file_extension == "docx":
-            extracted_text = extract_text_from_docx(file_path)
-        else:
-            return jsonify({"error": "Unsupported file format"}), 400
+@app.route("/upload_resume", methods=["POST"])
+@swag_from("swag/upload_resume.yml")  # Ensure correct path to the YAML file
+def upload_resume():
+    """ Upload and analyze a resume """
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
 
-        return jsonify({"filename": filename, "extracted_text": extracted_text})
+    file = request.files["file"]
+    extracted_text, links , filename = process_resume_file(file, app.config["UPLOAD_FOLDER"])
 
-    return jsonify({"error": "Invalid file type"}), 400
+    if extracted_text is None:
+        return jsonify({"error": "Unsupported file format"}), 400
 
-if __name__ == "__main__":
+    # analysis = analyze_resume_gemma(extracted_text,links)
+
+    return jsonify({
+        "filename": filename,
+        "links": links,
+        "extracted_text": extracted_text,
+        
+    })
+# v"skills": analysis["skills"],
+#         "experience": analysis["experience"],
+#         "job_titles": analysis["job_titles"]
+
+if __name__ == '__main__':
     app.run(debug=True)
