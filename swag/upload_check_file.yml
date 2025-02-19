@@ -5,7 +5,7 @@ consumes:
 produces:
   - application/json
 tags:
-  - Resume Upload checker
+  - test
 parameters:
   - name: file
     in: formData

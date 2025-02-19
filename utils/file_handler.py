@@ -42,8 +42,10 @@ def process_resume_file(file, upload_folder):
         extracted_text = extract_text_from_pdf(file_path)
         links = extract_links_from_pdf(file_path)
     elif file_extension == "docx":
+        print("DOCX file detected")
         extracted_text = extract_text_from_docx(file_path)
         links = extract_links_from_docx(file_path)
+        print(links)
     else:
         return None, None
 
