@@ -14,7 +14,7 @@ parameters:
     schema:
       type: object
       properties:
-        question:
+        query:
           type: string
           example: "What is AI?"
 responses:

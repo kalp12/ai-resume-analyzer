@@ -1,0 +1,40 @@
+summary: Upload and analyze a resume with Job Description
+description: "Uploads a resume (PDF/DOCX) and extracts details"
+consumes:
+  - multipart/form-data
+produces:
+  - application/json
+tags:
+  - Resume Analyzer
+parameters:
+  - name: file
+    in: formData
+    type: file
+    required: true
+    description: "The resume file to upload (PDF or DOCX)"
+  - name: job_description
+    in: formData
+    type: string
+    required: true
+    description: "The job description to compare against"
+    example: "Software Engineer"
+responses:
+  200:
+    description: "Resume successfully processed"
+    schema:
+      type: object
+      properties:
+        filename:
+          type: string
+          example: "resume.pdf"
+        extracted_text:
+          type: string
+          example: "John Doe, Software Engineer..."
+  400:
+    description: "Bad request (file missing or invalid)"
+    schema:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "No file provided"
