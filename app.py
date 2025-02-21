@@ -72,7 +72,8 @@ def query_resume():
     """Answers user queries based on stored resumes."""
     data = request.json
     query = data.get("query")
-    
+    print("Printing query")
+    print(query)
     if not query:
         return jsonify({"error": "Query is required"}), 400
 
