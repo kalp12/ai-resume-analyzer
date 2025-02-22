@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import React from "react";
 import { Send, MessageCircle, X, Loader2, Mic, MicOff } from "lucide-react";
-import "./chatbot.css"; // Import styles
+import "./chatbot.css"; 
 
 export default function Chatbot() {
   const [messages, setMessages] = useState([]);
@@ -14,41 +14,39 @@ export default function Chatbot() {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef(null);
 
+  // Load chat history from localStorage
   useEffect(() => {
     const storedMessages = localStorage.getItem("chatMessages");
     if (storedMessages) {
       setMessages(JSON.parse(storedMessages));
     } else {
-      setMessages([
-        { text: "Hello! How can I assist you today?", sender: "bot", timestamp: new Date() }
-      ]);
+      setMessages([{ text: "Hello! How can I assist you today?", sender: "bot", timestamp: new Date() }]);
     }
   }, []);
 
-  useEffect(() => {
-    if (chatEndRef.current && isOpen) {
-      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages, isOpen]);
-
-  useEffect(() => {
-    localStorage.setItem("chatMessages", JSON.stringify(messages));
-  }, [messages]);
-
+  // Auto-scroll to the latest message
   useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
+  // Save chat history to localStorage
+  useEffect(() => {
+    localStorage.setItem("chatMessages", JSON.stringify(messages));
+  }, [messages]);
+
   const streamResponse = async (fullText) => {
     let responseText = "";
     for (let i = 0; i < fullText.length; i++) {
       responseText += fullText[i];
-      await new Promise((resolve) => setTimeout(resolve, 5));
+      await new Promise((resolve) => setTimeout(resolve, 10)); // Simulated response streaming
       setMessages((prev) => {
         let updated = [...prev];
-        updated[updated.length - 1] = { text: responseText, sender: "bot", timestamp: new Date() };
+        let botIndex = updated.findIndex((msg) => msg.sender === "bot" && msg.text === ""); // Find the bot message being updated
+        if (botIndex !== -1) {
+          updated[botIndex] = { text: responseText, sender: "bot", timestamp: new Date() };
+        }
         return updated;
       });
     }
@@ -63,13 +61,15 @@ export default function Chatbot() {
 
     try {
       const response = await axios.post("http://127.0.0.1:5000/query", { query: input });
+
       if (response.data && response.data.response) {
         setMessages((prev) => [...prev, { text: "", sender: "bot", timestamp: new Date() }]);
         await streamResponse(response.data.response);
       }
     } catch (error) {
-      setMessages((prev) => [...prev, { text: "Error fetching response!", sender: "bot" }]);
+      setMessages((prev) => [...prev, { text: "⚠️ Error fetching response! Please try again.", sender: "bot", timestamp: new Date() }]);
     }
+
     setLoading(false);
   };
 
